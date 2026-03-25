@@ -18,7 +18,7 @@ app = FastAPI(
 
 
 class RequestModel(BaseModel):
-    query: str
+    time_stamp: str
 
 
 @app.get("/")
