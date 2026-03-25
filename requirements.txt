@@ -13,3 +13,4 @@ requests>=2.31.0
 # Vector Database
 chromadb>=0.4.24
 openai>=1.0.0
+gunicorn>=21.2.0
