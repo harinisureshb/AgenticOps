@@ -12,6 +12,8 @@ from langgraph.types import Command
 from langgraph.prebuilt import create_agent
 from pydantic import BaseModel, Field
 
+from langchain_community.tools.tavily_search import TavilySearchResults
+
 from tools import (
     analyze_cpu_metrics,
     analyze_memory_metrics,
@@ -214,15 +216,19 @@ async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
 
 
 # ━━━━━━━━━━ 5. RESOLVER AGENT (React) ━━━━━━━━━━
-resolver_tools = [search_resolution_faqs]
+tavily_tool = TavilySearchResults(max_results=8)
+resolver_tools = [search_resolution_faqs, tavily_tool]
 resolver_agent_app = create_agent(
     model=llm,
     tools=resolver_tools,
     state_modifier=(
-        "You are an incident response specialist. "
-        "Search the FAQs using given keywords from the findings to formulate actionable resolution steps. "
-        "Deliver a clear, step-by-step mitigation plan based solely on the knowledge base. "
-        "You MUST invoke your search tool to find relevant runbook entries."
+        "You are an incident response specialist with access to an internal FAQ knowledge base and the Tavily web search tool. "
+        "First, search the internal FAQs using keywords from the findings. Fetch the top 8 documents."
+        "Then, use the Tavily web search tool to find additional context, best practices, or recent solutions from the web. "
+        "Combine insights from BOTH the FAQ results and Tavily web search results to produce a comprehensive, actionable mitigation plan. "
+        "Clearly label which recommendations come from the internal FAQs and which come from web research. "
+        "Deliver a step-by-step mitigation plan that merges internal runbook guidance with industry best practices. "
+        "You MUST invoke BOTH tools before finalizing your response."
     )
 )
 
