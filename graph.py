@@ -1,59 +1,267 @@
-# graph.py
+# graph.py — AgenticOps Multi-Agent LangGraph Orchestrator
 
-from typing import TypedDict
-from langgraph.graph import StateGraph
-from langchain_community.chat_models import ChatOllama
+import os
+from typing import Annotated
+from typing_extensions import TypedDict, Literal
+
+from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
-from typing_extensions import Literal
+from langgraph.prebuilt import create_react_agent
 
-# from tools import cpu_analyzer, memory_analyzer, latency_analyzer
+from tools import (
+    analyze_cpu_metrics,
+    analyze_memory_metrics,
+    analyze_latency_metrics,
+    analyze_error_rates,
+    analyze_active_sessions,
+    get_failed_application_logs,
+    get_error_log_timeline,
+    get_cicd_failures,
+    get_deployment_timeline,
+    search_resolution_faqs,
+)
 
-# Define state
+# ──────────────── ENV & LLM ────────────────
+load_dotenv()
+
+llm = init_chat_model(
+    model="gpt-4o-mini",
+    model_provider="openai",
+)
+
+
+# ──────────────── STATE ────────────────
 class AgentState(TypedDict):
-    input: str
-    output: str
+    """Shared state that flows between all agents in the graph."""
+    input: str                     # User's original query
+    output: str                    # Final output sent back to user
+    metrics_report: str            # Metrics agent's analysis
+    logs_report: str               # Logs agent's analysis
+    cicd_report: str               # CI/CD agent's analysis
+    resolution_report: str         # Resolver agent's recommended fixes
+    final_report: str              # Reporter agent's final summary
+    agents_called: list[str]       # Tracks which agents have been called
+    next_agent: str                # Commander's routing decision
 
-# Local LLM (Ollama)
-llm = ChatOllama(model="llama3")
 
-# Commander logic
-async def commander_agent(state: AgentState) -> Command[Literal['metrics', 'logs', 'cicd','resolver','reporter','__end__']]:
+# ──────────────── AGENT DEFINITIONS ────────────────
 
-    return Command(update="",goto="")
+# ━━━━━━━━━━ 1. COMMANDER AGENT ━━━━━━━━━━
+# The commander is the orchestrator. It decides which agent to call next
+# based on which agents have already run.
+# Flow: metrics → logs → cicd → resolver → reporter → END
 
-#Metrics Agent
-async def metrics_agent(state: AgentState) -> Command(Literal['commander']):
+async def commander_agent(state: AgentState) -> Command[Literal[
+    "metrics", "logs", "cicd", "resolver", "reporter", "__end__"
+]]:
+    """
+    The Commander routes the workflow.
     
-    return Command(update="",goto="")
+    HOW Command() WORKS:
+    - Command(update={...}, goto="agent_name") tells LangGraph:
+      1. UPDATE the state with the dict in `update`
+      2. GO TO the node named "agent_name" next
+    """
 
-# Logs Agent
-async def logs_agent(state: AgentState) -> Command(Literal['commander']):
+    called = state.get("agents_called", [])
+
+    # Sequential orchestration: call agents in order
+    if "metrics" not in called:
+        next_agent = "metrics"
+    elif "logs" not in called:
+        next_agent = "logs"
+    elif "cicd" not in called:
+        next_agent = "cicd"
+    elif "resolver" not in called:
+        next_agent = "resolver"
+    elif "reporter" not in called:
+        next_agent = "reporter"
+    else:
+        # All agents done, end the graph
+        return Command(
+            update={"next_agent": "__end__"},
+            goto="__end__",
+        )
+
+    return Command(
+        update={
+            "next_agent": next_agent,
+            "agents_called": called + [next_agent],
+        },
+        goto=next_agent,
+    )
+
+
+# ━━━━━━━━━━ 2. METRICS AGENT (React) ━━━━━━━━━━
+metrics_tools = [
+    analyze_cpu_metrics,
+    analyze_memory_metrics,
+    analyze_latency_metrics,
+    analyze_error_rates,
+    analyze_active_sessions,
+]
+metrics_react = create_react_agent(
+    model=llm,
+    tools=metrics_tools,
+    state_modifier=(
+        "You are a Site Reliability Engineer (SRE). "
+        "Use your tools to analyze system telemetry and return a clear incident report "
+        "with anomalies, spikes, and time windows. You MUST call your tools to get the data."
+    )
+)
+
+async def metrics_agent(state: AgentState) -> Command[Literal["commander"]]:
+    """Metrics Agent wrapper that calls the internal React Agent."""
     
-    return Command(update="",goto="")
-
-# CI/CD Agent
-async def cicd_agent(state: AgentState) -> Command(Literal['commander']):
+    input_message = f"User Query: {state.get('input', 'Analyze system health')}\nPlease fetch and analyze the latest telemetry metrics."
     
-    return Command(update="",goto="")
-
-# Resolution Agent
-async def resolver_agent(state: AgentState) -> Command(Literal['commander']): 
+    # Run the autonomous react loop
+    response = await metrics_react.ainvoke({"messages": [("user", input_message)]})
     
-    return Command(update="",goto="")   
-
-
-# Reporting Agent
-async def reporter_agent(state: AgentState) -> Command(Literal['commander', '__end__']): 
+    # Extract only the final generated report
+    final_output = response["messages"][-1].content
     
-    return Command(update="",goto="")
+    return Command(
+        update={"metrics_report": final_output},
+        goto="commander",
+    )
 
 
+# ━━━━━━━━━━ 3. LOGS AGENT (React) ━━━━━━━━━━
+logs_tools = [get_failed_application_logs, get_error_log_timeline]
+logs_react = create_react_agent(
+    model=llm,
+    tools=logs_tools,
+    state_modifier=(
+        "You are a DevOps engineer analyzing application logs. "
+        "Use your tools to fetch log failures, identify error patterns, "
+        "group them by severity/method, and correlate with the metrics report."
+    )
+)
+
+async def logs_agent(state: AgentState) -> Command[Literal["commander"]]:
+    """Logs Agent wrapper that calls the internal React Agent."""
+    
+    input_message = (
+        f"User Query: {state.get('input', 'Analyze application logs')}\n"
+        f"Metrics Analysis (for correlation):\n{state.get('metrics_report', 'N/A')}\n\n"
+        f"Please analyze the application logs using your tools."
+    )
+    
+    response = await logs_react.ainvoke({"messages": [("user", input_message)]})
+    final_output = response["messages"][-1].content
+    
+    return Command(
+        update={"logs_report": final_output},
+        goto="commander",
+    )
 
 
-# Build graph
+# ━━━━━━━━━━ 4. CI/CD AGENT (React) ━━━━━━━━━━
+cicd_tools = [get_cicd_failures, get_deployment_timeline]
+cicd_react = create_react_agent(
+    model=llm,
+    tools=cicd_tools,
+    state_modifier=(
+        "You are a CI/CD pipeline analyst. "
+        "Use your tools to identify failed builds/deployments and check "
+        "if a bad deployment preceded an incident."
+    )
+)
+
+async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
+    """CI/CD Agent wrapper that calls the internal React Agent."""
+    
+    input_message = (
+        f"User Query: {state.get('input', 'Analyze CI/CD pipelines')}\n"
+        f"Metrics Report:\n{state.get('metrics_report', 'N/A')}\n"
+        f"Logs Report:\n{state.get('logs_report', 'N/A')}\n\n"
+        f"Please analyze the CI/CD pipelines using your tools."
+    )
+    
+    response = await cicd_react.ainvoke({"messages": [("user", input_message)]})
+    final_output = response["messages"][-1].content
+    
+    return Command(
+        update={"cicd_report": final_output},
+        goto="commander",
+    )
+
+
+# ━━━━━━━━━━ 5. RESOLVER AGENT (React) ━━━━━━━━━━
+resolver_tools = [search_resolution_faqs]
+resolver_react = create_react_agent(
+    model=llm,
+    tools=resolver_tools,
+    state_modifier=(
+        "You are an incident response specialist. "
+        "Use your FAQ search tool to find resolution steps based on the investigation findings. "
+        "You MUST call your tool."
+    )
+)
+
+async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
+    """Resolver Agent wrapper that calls the internal React Agent."""
+    
+    input_message = (
+        f"Investigation Summary:\n\n"
+        f"METRICS:\n{state.get('metrics_report', 'N/A')}\n\n"
+        f"LOGS:\n{state.get('logs_report', 'N/A')}\n\n"
+        f"CI/CD:\n{state.get('cicd_report', 'N/A')}\n\n"
+        f"Search the FAQs based on these findings and recommend specific resolution steps."
+    )
+    
+    response = await resolver_react.ainvoke({"messages": [("user", input_message)]})
+    final_output = response["messages"][-1].content
+    
+    return Command(
+        update={"resolution_report": final_output},
+        goto="commander",
+    )
+
+
+# ━━━━━━━━━━ 6. REPORTER AGENT (React) ━━━━━━━━━━
+reporter_react = create_react_agent(
+    model=llm,
+    tools=[],  # The reporter doesn't need external tools, it just synthesizes
+    state_modifier=(
+        "You are an SRE report writer producing a final incident report. "
+        "Structure it with: Executive Summary, Metrics Analysis, Application Log Analysis, "
+        "CI/CD Pipeline Status, Root Cause Analysis, Resolution Steps, and Impact Summary."
+    )
+)
+
+async def reporter_agent(state: AgentState) -> Command[Literal["commander", "__end__"]]:
+    """Reporter Agent wrapper that calls the internal React Agent."""
+    
+    input_message = (
+        f"Original Query: {state.get('input', 'System health analysis')}\n\n"
+        f"=== METRICS REPORT ===\n{state.get('metrics_report', 'N/A')}\n\n"
+        f"=== LOGS REPORT ===\n{state.get('logs_report', 'N/A')}\n\n"
+        f"=== CI/CD REPORT ===\n{state.get('cicd_report', 'N/A')}\n\n"
+        f"=== RESOLUTION REPORT ===\n{state.get('resolution_report', 'N/A')}"
+    )
+    
+    response = await reporter_react.ainvoke({"messages": [("user", input_message)]})
+    final_output = response["messages"][-1].content
+    
+    return Command(
+        update={
+             "final_report": final_output,
+             "output": final_output,
+        },
+        goto="__end__",
+    )
+
+
+# ──────────────── BUILD GRAPH ────────────────
+
 builder = StateGraph(AgentState)
 
+# Add all nodes
 builder.add_node("commander", commander_agent)
 builder.add_node("metrics", metrics_agent)
 builder.add_node("logs", logs_agent)
@@ -61,8 +269,8 @@ builder.add_node("cicd", cicd_agent)
 builder.add_node("resolver", resolver_agent)
 builder.add_node("reporter", reporter_agent)
 
+# Entry point: always start at commander
+builder.add_edge(START, "commander")
 
-
-build.add_edge(START, "commander")
-
+# Compile the graph
 graph = builder.compile()
