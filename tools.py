@@ -365,11 +365,7 @@ def search_resolution_faqs(query: str, n_results: int = 3) -> str:
 
 # ═══════════════ EMAIL TOOL ═══════════════
 
-POWER_PLATFORM_URL = (
-    "https://825521871ec5ed2ca0a95a6119079e.48.environment.api.powerplatform.com:443"
-    "/powerautomate/automations/direct/workflows/77fa7e9fde374365ac1aaf731125657f"
-    "/triggers/manual/paths/invoke?api-version=1"
-)
+POWER_PLATFORM_URL = "https://825521871ec5ed2ca0a95a6119079e.48.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/77fa7e9fde374365ac1aaf731125657f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=d1wLhGrLhdpkaXy2IZr9cF2BOPg7192jRVU7zdf4_5M"
 
 
 @tool

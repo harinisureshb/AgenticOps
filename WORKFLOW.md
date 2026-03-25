@@ -1,0 +1,278 @@
+# AgenticOps — Agent Workflow
+
+## Overview
+
+AgenticOps is a multi-agent AI system for IT Operations that autonomously detects anomalies, investigates incidents across logs and metrics, correlates events, and recommends resolutions. It is built with **LangGraph**, **LangChain**, and **FastAPI**, and uses a **ChromaDB** vector store for FAQ-based resolution lookups.
+
+---
+
+## Architecture Diagram
+
+```
+                         ┌──────────────┐
+                         │   Client     │
+                         │  (POST /run  │
+                         │   -agent)    │
+                         └──────┬───────┘
+                                │
+                                ▼
+                         ┌──────────────┐
+                         │   FastAPI    │
+                         │   main.py    │
+                         └──────┬───────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │    LangGraph Engine    │
+                    │      (graph.py)       │
+                    └───────────┬───────────┘
+                                │
+                                ▼
+              ┌─────────────────────────────────────┐
+              │          COMMANDER AGENT             │
+              │  (Deterministic Orchestrator)        │
+              │                                     │
+              │  Enforces fixed pipeline sequence:  │
+              │  metrics → logs → cicd → resolver   │
+              │  → reporter → END                   │
+              └──────────────┬──────────────────────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+           ▼                 ▼                 ▼
+   ┌──────────────┐  ┌─────────────┐  ┌──────────────┐
+   │   METRICS    │  │    LOGS     │  │    CI/CD     │
+   │    AGENT     │  │    AGENT    │  │    AGENT     │
+   │  (ReAct)     │  │  (ReAct)   │  │  (ReAct)     │
+   └──────┬───────┘  └─────┬──────┘  └──────┬───────┘
+          │                 │                 │
+          │    ◄── Each returns to Commander ──►
+          │                 │                 │
+          └────────┬────────┘─────────┬───────┘
+                   │                  │
+                   ▼                  ▼
+          ┌──────────────┐   ┌───────────────┐
+          │   RESOLVER   │   │   REPORTER    │
+          │    AGENT     │   │    AGENT      │
+          │  (ReAct)     │   │  (ReAct)      │
+          └──────────────┘   └───────┬───────┘
+                                     │
+                                     ▼
+                             ┌───────────────┐
+                             │  Power Auto-  │
+                             │  mate Email   │
+                             └───────────────┘
+```
+
+---
+
+## Pipeline Sequence
+
+The Commander agent enforces a **fixed, deterministic pipeline**. Each agent runs in order, reports back to the Commander, and the Commander routes to the next agent.
+
+```
+START → Commander → Metrics Agent → Commander → Logs Agent → Commander
+      → CI/CD Agent → Commander → Resolver Agent → Commander
+      → Reporter Agent → END
+```
+
+| Step | Agent            | Purpose                                       | Returns to   |
+|------|------------------|-----------------------------------------------|--------------|
+| 1    | **Commander**    | Routes to the next unvisited agent             | Next agent   |
+| 2    | **Metrics**      | Analyzes telemetry data for anomalies          | Commander    |
+| 3    | **Logs**         | Analyzes application error/warning logs        | Commander    |
+| 4    | **CI/CD**        | Investigates pipeline failures & deployments   | Commander    |
+| 5    | **Resolver**     | Searches FAQs + web for mitigation steps       | Commander    |
+| 6    | **Reporter**     | Generates final HTML incident report & emails  | END          |
+
+---
+
+## Shared State
+
+All agents read from and write to a shared `AgentState` dictionary:
+
+| Field              | Type         | Written By      | Description                                |
+|--------------------|--------------|-----------------|--------------------------------------------|
+| `issue`            | `str`        | Client request  | User's original issue description          |
+| `time_stamp`       | `str`        | Client request  | Timestamp from the request body            |
+| `output`           | `str`        | Reporter        | Final output sent back to the client       |
+| `metrics_report`   | `str`        | Metrics Agent   | Telemetry analysis findings                |
+| `logs_report`      | `str`        | Logs Agent      | Application log analysis findings          |
+| `cicd_report`      | `str`        | CI/CD Agent     | Pipeline & deployment analysis findings    |
+| `resolution_report`| `str`        | Resolver Agent  | Recommended mitigation steps               |
+| `final_report`     | `str`        | Reporter Agent  | Final formatted HTML report                |
+| `agents_called`    | `list[str]`  | Commander       | Tracks which agents have executed           |
+| `next_agent`       | `str`        | Commander       | The next agent to be invoked               |
+
+---
+
+## Agent Details
+
+### 1. Commander Agent
+
+- **Type:** Deterministic router (no LLM calls)
+- **Role:** Enforces the fixed agent sequence by checking `agents_called` and routing to the next unvisited agent in the pipeline.
+- **Sequence:** `["metrics", "logs", "cicd", "resolver", "reporter"]`
+- **Logic:** Iterates through the sequence; the first agent not yet in `agents_called` is the next destination. When all agents have run, routes to `__end__`.
+
+### 2. Metrics Agent (ReAct)
+
+- **LLM Prompt Role:** Expert SRE specializing in telemetry and metrics analysis
+- **Tools:**
+  | Tool                       | Description                                              |
+  |----------------------------|----------------------------------------------------------|
+  | `analyze_cpu_metrics`      | Analyzes CPU utilization; detects spikes > 80%           |
+  | `analyze_memory_metrics`   | Analyzes memory usage; detects readings > 1500 MB        |
+  | `analyze_latency_metrics`  | Analyzes payment gateway (> 1000 ms) & DB (> 200 ms) latency |
+  | `analyze_error_rates`      | Analyzes checkout error rates; flags > 5%                |
+  | `analyze_active_sessions`  | Analyzes concurrent sessions; flags > 1000               |
+- **Data Source:** `logs/telemetry_logs.json`
+- **Output:** `metrics_report` — a structured anomaly summary with statistics
+
+### 3. Logs Agent (ReAct)
+
+- **LLM Prompt Role:** DevOps engineer analyzing application logs
+- **Input Context:** Receives `metrics_report` for cross-correlation
+- **Tools:**
+  | Tool                        | Description                                        |
+  |-----------------------------|----------------------------------------------------|
+  | `get_failed_application_logs` | Retrieves ERROR/WARN logs grouped by method       |
+  | `get_error_log_timeline`     | Hourly error distribution to identify burst windows |
+- **Data Source:** `logs/application_logs.json`
+- **Output:** `logs_report` — error patterns, stack traces, and correlation with metrics
+
+### 4. CI/CD Agent (ReAct)
+
+- **LLM Prompt Role:** CI/CD pipeline analyst
+- **Input Context:** Receives `metrics_report` and `logs_report`
+- **Tools:**
+  | Tool                      | Description                                            |
+  |---------------------------|--------------------------------------------------------|
+  | `get_cicd_failures`       | Retrieves failed pipeline runs, rollbacks, success rate |
+  | `get_deployment_timeline` | Timeline of production/staging deploys and rollbacks    |
+- **Data Source:** `logs/cicd_logs.json`
+- **Output:** `cicd_report` — deployment IDs/commits that may have caused the incident
+
+### 5. Resolver Agent (ReAct)
+
+- **LLM Prompt Role:** Incident response specialist
+- **Input Context:** Receives `metrics_report`, `logs_report`, and `cicd_report`
+- **Tools:**
+  | Tool                    | Description                                              |
+  |-------------------------|----------------------------------------------------------|
+  | `search_resolution_faqs`| Semantic search over ChromaDB SRE runbook vector store   |
+  | `TavilySearchResults`   | Web search for additional context and best practices     |
+- **Data Sources:** ChromaDB vector database (`vector_database/chroma_db`), Tavily web search
+- **Output:** `resolution_report` — step-by-step mitigation plan combining internal FAQs and web research
+
+### 6. Reporter Agent (ReAct)
+
+- **LLM Prompt Role:** Lead SRE formatting a final incident report
+- **Input Context:** All prior reports (`metrics`, `logs`, `cicd`, `resolution`) plus original issue and timestamp
+- **Tools:** None (generation-only)
+- **Output:** `final_report` — well-structured HTML email with sections:
+  - Executive Summary
+  - Root Cause Analysis
+  - Key Findings (Metrics, Logs, CI/CD)
+  - Actionable Resolution Steps
+  - Impact
+- **Side Effect:** Triggers `send_email_via_power_platform` to dispatch the HTML report as an email via Power Automate
+
+---
+
+## Data Flow
+
+```
+telemetry_logs.json ──► Metrics Agent ──► metrics_report
+                                              │
+application_logs.json ──► Logs Agent ◄────────┘
+                              │
+                              ├──► logs_report
+                              │         │
+cicd_logs.json ──► CI/CD Agent ◄────────┘
+                       │
+                       ├──► cicd_report
+                       │         │
+ChromaDB ──► Resolver Agent ◄───┘
+Tavily Web       │
+                 ├──► resolution_report
+                 │         │
+           Reporter Agent ◄┘
+                 │
+                 ├──► final_report (HTML)
+                 │
+                 └──► Power Automate (Email)
+```
+
+---
+
+## API Endpoints
+
+| Method | Path          | Description                              |
+|--------|---------------|------------------------------------------|
+| GET    | `/`           | Service info and available endpoints      |
+| GET    | `/health`     | Health check; lists all agent names       |
+| POST   | `/run-agent`  | Triggers the full multi-agent pipeline    |
+
+### POST `/run-agent` Request Body
+
+```json
+{
+  "time_stamp": "2026-03-25T10:30:00Z",
+  "issue": "High API latency detected on the payment service..."
+}
+```
+
+### POST `/run-agent` Response
+
+```json
+{
+  "status": "success",
+  "issue": "...",
+  "time_stamp": "...",
+  "response": "<html>...final report...</html>",
+  "agents_called": ["metrics", "logs", "cicd", "resolver", "reporter"],
+  "reports": {
+    "metrics": "...",
+    "logs": "...",
+    "cicd": "...",
+    "resolution": "...",
+    "final": "..."
+  }
+}
+```
+
+---
+
+## Vector Database (ChromaDB)
+
+The Resolver Agent queries a pre-built ChromaDB collection of SRE runbook FAQs.
+
+- **Collection:** `sre_runbooks`
+- **Embedding Model:** `text-embedding-3-large` (OpenAI)
+- **Similarity Metric:** Cosine
+- **Source Data:** `FAQs/resolution_faqs.json`
+- **Ingestion Script:** `vector_database/ingestion_pipeline.py`
+
+Each FAQ document is indexed as:
+```
+Category: {category}
+Question: {question}
+Resolution: {answer}
+```
+
+---
+
+## Tech Stack
+
+| Component        | Technology                              |
+|------------------|-----------------------------------------|
+| Orchestration    | LangGraph (StateGraph)                  |
+| Agent Framework  | LangChain ReAct agents                  |
+| LLM              | OpenAI GPT-5.2                          |
+| API Server       | FastAPI + Uvicorn                       |
+| Vector Database  | ChromaDB (persistent, cosine similarity)|
+| Embeddings       | OpenAI `text-embedding-3-large`         |
+| Web Search       | Tavily Search API                       |
+| Email Dispatch   | Microsoft Power Automate                |
+| Configuration    | python-dotenv                           |
