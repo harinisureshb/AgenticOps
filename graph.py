@@ -25,6 +25,7 @@ from tools import (
     get_cicd_failures,
     get_deployment_timeline,
     search_resolution_faqs,
+    send_email_via_power_platform,
 )
 
 # ──────────────── ENV & LLM ────────────────
@@ -39,7 +40,8 @@ llm = init_chat_model(
 # ──────────────── STATE ────────────────
 class AgentState(TypedDict):
     """Shared state that flows between all agents in the graph."""
-    input: str                     # User's original query
+    issue: str                     # User's original issue description
+    time_stamp: str                # Timestamp from the request body
     output: str                    # Final output sent back to user
     metrics_report: str            # Metrics agent's analysis
     logs_report: str               # Logs agent's analysis
@@ -82,7 +84,7 @@ async def commander_agent(state: AgentState) -> Command[Literal[
         
     system_prompt = (
         "You are the Commander Agent orchestrating specialized subagents.\n"
-        f"User Query: {state.get('input', '')}\n"
+        f"User Query: {state.get('issue', '')}\n"
         f"Agents already called in this flow: {called}\n"
         "Available agents to call:\n"
         "- metrics: analyses system health/telemetry anomalies\n"
@@ -139,7 +141,7 @@ metrics_agent_app = create_agent(
 async def metrics_agent(state: AgentState) -> Command[Literal["commander"]]:
     """Metrics Agent wrapper that calls the internal Agent."""
     
-    input_message = f"User Query: {state.get('input', 'Analyze system health')}\nPlease fetch and analyze the latest telemetry metrics."
+    input_message = f"User Query: {state.get('issue', 'Analyze system health')}\nPlease fetch and analyze the latest telemetry metrics."
     
     # Run the autonomous loop
     response = await metrics_agent_app.ainvoke({"messages": [("user", input_message)]})
@@ -170,7 +172,7 @@ async def logs_agent(state: AgentState) -> Command[Literal["commander"]]:
     """Logs Agent wrapper that calls the internal Agent."""
     
     input_message = (
-        f"User Query: {state.get('input', 'Analyze application logs')}\n"
+        f"User Query: {state.get('issue', 'Analyze application logs')}\n"
         f"Metrics Analysis (for correlation):\n{state.get('metrics_report', 'N/A')}\n\n"
         f"Please analyze the application logs using your tools."
     )
@@ -200,7 +202,7 @@ async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
     """CI/CD Agent wrapper that calls the internal Agent."""
     
     input_message = (
-        f"User Query: {state.get('input', 'Analyze CI/CD pipelines')}\n"
+        f"User Query: {state.get('issue', 'Analyze CI/CD pipelines')}\n"
         f"Metrics Report:\n{state.get('metrics_report', 'N/A')}\n"
         f"Logs Report:\n{state.get('logs_report', 'N/A')}\n\n"
         f"Please analyze the CI/CD pipelines using your tools."
@@ -255,12 +257,14 @@ async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
 # ━━━━━━━━━━ 6. REPORTER AGENT (React) ━━━━━━━━━━
 reporter_agent_app = create_agent(
     model=llm,
-    tools=[],  # The reporter doesn't need external tools, it just synthesizes
+    tools=[send_email_via_power_platform],
     state_modifier=(
         "You are a Lead SRE formatting a final incident report. "
-        "Present a professional, executive-ready breakdown. "
+        "Your output MUST be a well-structured HTML email body (using <html>, <body>, <h2>, <table>, <ul>, <p> tags). "
+        "Use inline CSS for styling (professional colors, padding, borders). "
         "Required Sections: Executive Summary, Root Cause Analysis, Key Findings (Metrics, Logs, CI/CD), Actionable Resolution Steps, Impact. "
-        "Keep it remarkably crisp, highly readable, and authoritative."
+        "Keep it remarkably crisp, highly readable, and authoritative. "
+        "After generating the HTML report, you MUST call the send_email_via_power_platform tool with the full HTML string and the provided timestamp to dispatch the email."
     )
 )
 
@@ -268,7 +272,8 @@ async def reporter_agent(state: AgentState) -> Command[Literal["commander", "__e
     """Reporter Agent wrapper that calls the internal Agent."""
     
     input_message = (
-        f"Original Query: {state.get('input', 'System health analysis')}\n\n"
+        f"Original Query: {state.get('issue', 'System health analysis')}\n"
+        f"Timestamp: {state.get('time_stamp', '')}\n\n"
         f"=== METRICS REPORT ===\n{state.get('metrics_report', 'N/A')}\n\n"
         f"=== LOGS REPORT ===\n{state.get('logs_report', 'N/A')}\n\n"
         f"=== CI/CD REPORT ===\n{state.get('cicd_report', 'N/A')}\n\n"
