@@ -9,7 +9,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
-from langgraph.prebuilt import create_agent
+from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -127,10 +127,10 @@ metrics_tools = [
     analyze_error_rates,
     analyze_active_sessions,
 ]
-metrics_agent_app = create_agent(
+metrics_agent_app = create_react_agent(
     model=llm,
     tools=metrics_tools,
-    state_modifier=(
+    prompt=(
         "You are an expert SRE specializing in telemetry and metrics analysis. "
         "Your duty is to query system metrics (CPU, Memory, Latency, Errors) and detect anomalies, spikes, and precise time windows. "
         "Return a crisp, comprehensive incident report highlighting only the deviations and critical data points. "
@@ -157,10 +157,10 @@ async def metrics_agent(state: AgentState) -> Command[Literal["commander"]]:
 
 # ━━━━━━━━━━ 3. LOGS AGENT (React) ━━━━━━━━━━
 logs_tools = [get_failed_application_logs, get_error_log_timeline]
-logs_agent_app = create_agent(
+logs_agent_app = create_react_agent(
     model=llm,
     tools=logs_tools,
-    state_modifier=(
+    prompt=(
         "You are a DevOps engineer analyzing application logs. "
         "Fetch failed logs, pinpoint exact error patterns, categorize by severity/endpoint, "
         "and rigorously correlate these errors with the provided metrics report. "
@@ -188,10 +188,10 @@ async def logs_agent(state: AgentState) -> Command[Literal["commander"]]:
 
 # ━━━━━━━━━━ 4. CI/CD AGENT (React) ━━━━━━━━━━
 cicd_tools = [get_cicd_failures, get_deployment_timeline]
-cicd_agent_app = create_agent(
+cicd_agent_app = create_react_agent(
     model=llm,
     tools=cicd_tools,
-    state_modifier=(
+    prompt=(
         "You are a CI/CD pipeline analyst. "
         "Investigate failed builds and timeline of deployments to check if bad shipped code caused the incidents mentioned in logs/metrics. "
         "Report the exact deployment ID or commit that triggered the issue. Be crisp and direct."
@@ -220,10 +220,10 @@ async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
 # ━━━━━━━━━━ 5. RESOLVER AGENT (React) ━━━━━━━━━━
 tavily_tool = TavilySearchResults(max_results=8)
 resolver_tools = [search_resolution_faqs, tavily_tool]
-resolver_agent_app = create_agent(
+resolver_agent_app = create_react_agent(
     model=llm,
     tools=resolver_tools,
-    state_modifier=(
+    prompt=(
         "You are an incident response specialist with access to an internal FAQ knowledge base and the Tavily web search tool. "
         "First, search the internal FAQs using keywords from the findings. Fetch the top 8 documents."
         "Then, use the Tavily web search tool to find additional context, best practices, or recent solutions from the web. "
@@ -255,10 +255,10 @@ async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
 
 
 # ━━━━━━━━━━ 6. REPORTER AGENT (React) ━━━━━━━━━━
-reporter_agent_app = create_agent(
+reporter_agent_app = create_react_agent(
     model=llm,
     tools=[send_email_via_power_platform],
-    state_modifier=(
+    prompt=(
         "You are a Lead SRE formatting a final incident report. "
         "Your output MUST be a well-structured HTML email body (using <html>, <body>, <h2>, <table>, <ul>, <p> tags). "
         "Use inline CSS for styling (professional colors, padding, borders). "
