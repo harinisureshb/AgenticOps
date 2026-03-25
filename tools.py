@@ -16,7 +16,7 @@ CICD_LOGS_PATH = os.path.join(BASE_DIR, "logs", "cicd_logs.json")
 FAQS_PATH = os.path.join(BASE_DIR, "FAQs", "resolution_faqs.json")
 CHROMA_DB_PATH = os.path.join(BASE_DIR, "vector_database", "chroma_db")
 COLLECTION_NAME = "sre_runbooks"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "text-embedding-3-large"
 
 
 # ──────────────── Helpers ────────────────
@@ -334,12 +334,13 @@ def search_resolution_faqs(query: str, n_results: int = 3) -> str:
         n_results: Number of top matching FAQs to return (default 3).
     """
     client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    hf_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+        api_key=os.environ["OPENAI_API_KEY"],
         model_name=EMBEDDING_MODEL
     )
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
-        embedding_function=hf_ef,
+        embedding_function=openai_ef,
         metadata={"hnsw:space": "cosine"},
     )
 

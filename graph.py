@@ -1,6 +1,7 @@
 # graph.py — AgenticOps Multi-Agent LangGraph Orchestrator
 
 import os
+import logging
 from typing import Annotated
 from typing_extensions import TypedDict, Literal
 
@@ -10,7 +11,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from langgraph.prebuilt import create_react_agent
-from pydantic import BaseModel, Field
 
 from langchain_community.tools.tavily_search import TavilySearchResults
 
@@ -28,11 +28,15 @@ from tools import (
     send_email_via_power_platform,
 )
 
+# ──────────────── LOGGING ────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger("AgenticOps")
+
 # ──────────────── ENV & LLM ────────────────
 load_dotenv()
 
 llm = init_chat_model(
-    model="gpt-4o-mini",
+    model="gpt-5.2",
     model_provider="openai",
 )
 
@@ -55,68 +59,37 @@ class AgentState(TypedDict):
 # ──────────────── AGENT DEFINITIONS ────────────────
 
 # ━━━━━━━━━━ 1. COMMANDER AGENT ━━━━━━━━━━
-# The commander is the orchestrator. It decides which agent to call next
-# based on which agents have already run.
-# Flow: metrics → logs → cicd → resolver → reporter → END
+# The commander is a deterministic orchestrator that enforces a fixed pipeline:
+#   metrics → logs → cicd → resolver → reporter → END
+# The first three agents (metrics, logs, cicd) gather data and populate state.
+# The resolver synthesizes findings into an actionable mitigation plan.
+# The reporter produces the final HTML email summary.
 
-class RouteDecision(BaseModel):
-    next_agent: Literal["metrics", "logs", "cicd", "resolver", "reporter", "__end__"] = Field(
-        description="The next specialized agent to route to. "
-                    "metrics: To query system telemetry and metrics data if not already done. "
-                    "logs: To query application logs for failures and patterns if not already done. "
-                    "cicd: To check deployment pipelines for issues if not already done. "
-                    "resolver: To search FAQs for resolution steps once issues are identified. "
-                    "reporter: To generate the final incident report after investigation. "
-                    "__end__: If the user request is fully satisfied or irrelevant."
-    )
-    reasoning: str = Field(description="Reasoning for the routing decision.")
+AGENT_SEQUENCE = ["metrics", "logs", "cicd", "resolver", "reporter"]
 
 async def commander_agent(state: AgentState) -> Command[Literal[
     "metrics", "logs", "cicd", "resolver", "reporter", "__end__"
 ]]:
     """
-    The Commander routes the workflow intelligently based on the query and current state using an LLM.
+    The Commander routes the workflow through a fixed sequence:
+    metrics → logs → cicd → resolver → reporter → END
     """
     called = state.get("agents_called", [])
-    
-    if "reporter" in called:
-        return Command(update={"next_agent": "__end__"}, goto="__end__")
-        
-    system_prompt = (
-        "You are the Commander Agent orchestrating specialized subagents.\n"
-        f"User Query: {state.get('issue', '')}\n"
-        f"Agents already called in this flow: {called}\n"
-        "Available agents to call:\n"
-        "- metrics: analyses system health/telemetry anomalies\n"
-        "- logs: analyses application errors and logs\n"
-        "- cicd: analyses deployment pipelines and build states\n"
-        "- resolver: searches knowledge base for fixes based on findings\n"
-        "- reporter: compiles all findings into a final unified report\n"
-        "Decide the absolute best next agent to invoke. You MUST NOT call an agent that has already been called. "
-        "Standard sequence is metrics -> logs -> cicd -> resolver -> reporter, but skip steps if irrelevant."
-    )
-    
-    router_llm = llm.with_structured_output(RouteDecision)
-    decision = await router_llm.ainvoke([
-        SystemMessage(content=system_prompt), 
-        HumanMessage(content="Determine the next agent to call based on the current context.")
-    ])
-    
-    next_agent = decision.next_agent
-    
-    if next_agent == "__end__":
-        return Command(
-            update={"next_agent": "__end__"},
-            goto="__end__",
-        )
+    logger.info("Commander invoked | agents_called=%s", called)
 
-    return Command(
-        update={
-            "next_agent": next_agent,
-            "agents_called": called + [next_agent],
-        },
-        goto=next_agent,
-    )
+    for agent in AGENT_SEQUENCE:
+        if agent not in called:
+            logger.info("Commander routing to: %s", agent)
+            return Command(
+                update={
+                    "next_agent": agent,
+                    "agents_called": called + [agent],
+                },
+                goto=agent,
+            )
+
+    logger.info("Commander: all agents completed, routing to __end__")
+    return Command(update={"next_agent": "__end__"}, goto="__end__")
 
 
 # ━━━━━━━━━━ 2. METRICS AGENT (React) ━━━━━━━━━━
@@ -140,6 +113,7 @@ metrics_agent_app = create_react_agent(
 
 async def metrics_agent(state: AgentState) -> Command[Literal["commander"]]:
     """Metrics Agent wrapper that calls the internal Agent."""
+    logger.info("Metrics agent started")
     
     input_message = f"User Query: {state.get('issue', 'Analyze system health')}\nPlease fetch and analyze the latest telemetry metrics."
     
@@ -148,6 +122,7 @@ async def metrics_agent(state: AgentState) -> Command[Literal["commander"]]:
     
     # Extract only the final generated report
     final_output = response["messages"][-1].content
+    logger.info("Metrics agent completed")
     
     return Command(
         update={"metrics_report": final_output},
@@ -170,6 +145,7 @@ logs_agent_app = create_react_agent(
 
 async def logs_agent(state: AgentState) -> Command[Literal["commander"]]:
     """Logs Agent wrapper that calls the internal Agent."""
+    logger.info("Logs agent started")
     
     input_message = (
         f"User Query: {state.get('issue', 'Analyze application logs')}\n"
@@ -179,6 +155,7 @@ async def logs_agent(state: AgentState) -> Command[Literal["commander"]]:
     
     response = await logs_agent_app.ainvoke({"messages": [("user", input_message)]})
     final_output = response["messages"][-1].content
+    logger.info("Logs agent completed")
     
     return Command(
         update={"logs_report": final_output},
@@ -200,6 +177,7 @@ cicd_agent_app = create_react_agent(
 
 async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
     """CI/CD Agent wrapper that calls the internal Agent."""
+    logger.info("CI/CD agent started")
     
     input_message = (
         f"User Query: {state.get('issue', 'Analyze CI/CD pipelines')}\n"
@@ -210,6 +188,7 @@ async def cicd_agent(state: AgentState) -> Command[Literal["commander"]]:
     
     response = await cicd_agent_app.ainvoke({"messages": [("user", input_message)]})
     final_output = response["messages"][-1].content
+    logger.info("CI/CD agent completed")
     
     return Command(
         update={"cicd_report": final_output},
@@ -236,6 +215,7 @@ resolver_agent_app = create_react_agent(
 
 async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
     """Resolver Agent wrapper that calls the internal Agent."""
+    logger.info("Resolver agent started")
     
     input_message = (
         f"Investigation Summary:\n\n"
@@ -247,6 +227,7 @@ async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
     
     response = await resolver_agent_app.ainvoke({"messages": [("user", input_message)]})
     final_output = response["messages"][-1].content
+    logger.info("Resolver agent completed")
     
     return Command(
         update={"resolution_report": final_output},
@@ -270,6 +251,7 @@ reporter_agent_app = create_react_agent(
 
 async def reporter_agent(state: AgentState) -> Command[Literal["commander", "__end__"]]:
     """Reporter Agent wrapper that calls the internal Agent."""
+    logger.info("Reporter agent started")
     
     input_message = (
         f"Original Query: {state.get('issue', 'System health analysis')}\n"
@@ -282,6 +264,8 @@ async def reporter_agent(state: AgentState) -> Command[Literal["commander", "__e
     
     response = await reporter_agent_app.ainvoke({"messages": [("user", input_message)]})
     final_output = response["messages"][-1].content
+    
+    logger.info("Reporter agent completed — final report generated")
     
     return Command(
         update={
@@ -309,3 +293,4 @@ builder.add_edge(START, "commander")
 
 # Compile the graph
 graph = builder.compile()
+logger.info("LangGraph compiled successfully")

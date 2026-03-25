@@ -2,6 +2,9 @@ import json
 import os
 import chromadb
 from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # 1. Configuration
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -9,8 +12,7 @@ file_path = os.path.join(script_dir, "..", "FAQs", "resolution_faqs.json")
 JSON_FILE = file_path
 DB_PATH = "./chroma_db"
 COLLECTION_NAME = "sre_runbooks"
-# all-MiniLM-L6-v2 is an excellent, fast HuggingFace model for local semantic search
-EMBEDDING_MODEL = "all-MiniLM-L6-v2" 
+EMBEDDING_MODEL = "text-embedding-3-large" 
 
 def build_vector_db():
     print(f"Loading FAQs from {JSON_FILE}...")
@@ -45,9 +47,10 @@ def build_vector_db():
     print(f"Initializing ChromaDB persistent client at {DB_PATH}...")
     client = chromadb.PersistentClient(path=DB_PATH)
 
-    # 4. Define the HuggingFace Embedding Function
-    print(f"Downloading/Loading HuggingFace embedding model: {EMBEDDING_MODEL}...")
-    hf_embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+    # 4. Define the OpenAI Embedding Function
+    print(f"Using OpenAI embedding model: {EMBEDDING_MODEL}...")
+    openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+        api_key=os.environ["OPENAI_API_KEY"],
         model_name=EMBEDDING_MODEL
     )
 
@@ -55,7 +58,7 @@ def build_vector_db():
     # We use get_or_create so you can run this script multiple times safely
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
-        embedding_function=hf_embedding_function,
+        embedding_function=openai_ef,
         metadata={"hnsw:space": "cosine"} # Cosine similarity is best for text embeddings
     )
 
