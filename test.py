@@ -1,0 +1,12 @@
+import requests
+
+response = requests.post(
+    "http://localhost:8000/run-agent",
+    json={
+        "time_stamp": "2026-03-25T10:30:00Z",
+        "issue": "High API latency detected on the payment service. Response times have increased from 200ms to over 2s in the last 30 minutes."
+    },
+)
+
+print("Status:", response.status_code)
+print("Response:", response.json())

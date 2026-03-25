@@ -2,7 +2,9 @@
 
 import json
 import os
+
 import chromadb
+import requests
 from chromadb.utils import embedding_functions
 from langchain_core.tools import tool
 
@@ -358,4 +360,36 @@ def search_resolution_faqs(query: str, n_results: int = 3) -> str:
         })
 
     return documents
+
+
+# ═══════════════ EMAIL TOOL ═══════════════
+
+POWER_PLATFORM_URL = (
+    "https://825521871ec5ed2ca0a95a6119079e.48.environment.api.powerplatform.com:443"
+    "/powerautomate/automations/direct/workflows/77fa7e9fde374365ac1aaf731125657f"
+    "/triggers/manual/paths/invoke?api-version=1"
+)
+
+
+@tool
+def send_email_via_power_platform(email_html: str, timestamp: str) -> str:
+    """Send an incident report email by triggering a Power Automate flow.
+
+    Args:
+        email_html: The full HTML content of the email body.
+        timestamp: The incident timestamp to include in the payload.
+    """
+    payload = {
+        "timestamp": timestamp,
+        "email_html": email_html,
+    }
+    resp = requests.post(
+        POWER_PLATFORM_URL,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=30,
+    )
+    if resp.ok:
+        return f"Email sent successfully (HTTP {resp.status_code})."
+    return f"Failed to send email: HTTP {resp.status_code} — {resp.text[:500]}"
 

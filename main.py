@@ -51,12 +51,13 @@ async def run_agent(request: RequestModel):
     """
     try:
         result = await graph.ainvoke({
-            "input": request.query,
+            "issue": request.issue,
+            "time_stamp": request.time_stamp,
             "agents_called": [],
         })
 
         return {
-            "query": request.query,
+            "issue": request.issue,
             "response": result.get("output", "No output generated"),
             "agents_called": result.get("agents_called", []),
             "reports": {
