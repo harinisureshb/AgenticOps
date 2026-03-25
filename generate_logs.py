@@ -4,131 +4,180 @@ import uuid
 from datetime import datetime, timedelta
 
 # Configurations
-NUM_APP_LOGS = 1000
-NUM_TELEMETRY_LOGS = 800
+NUM_APP_LOGS = 2500
+NUM_TELEMETRY_LOGS = 2000
 NUM_CICD_LOGS = 50
+TOTAL_SECONDS_IN_DAY = 86400
 
 SERVICE_NAME = "checkout-service"
-LEVELS =["INFO", "INFO", "INFO", "INFO", "WARN", "ERROR", "DEBUG"]
 
-# Checkout specific functions/methods
-METHODS =[
-    "validateCart", 
-    "calculateTaxes", 
-    "applyDiscount", 
-    "processPayment", 
-    "updateInventory", 
-    "confirmOrder"
-]
+METHODS =["validateCart", "calculateTaxes", "applyDiscount", "processPayment", "updateInventory", "confirmOrder"]
+METRICS =["cpu_utilization_percent", "memory_usage_mb", "payment_gateway_latency_ms", "db_query_latency_ms", "active_checkout_sessions", "checkout_error_rate_percent"]
+STAGES  =["build", "test", "security_scan", "deploy_staging", "deploy_production"]
 
-# Expanded telemetry metrics
-METRICS =[
-    "cpu_utilization_percent", 
-    "memory_usage_mb", 
-    "payment_gateway_latency_ms", 
-    "db_query_latency_ms",
-    "active_checkout_sessions",
-    "checkout_error_rate_percent"
-]
-
-STAGES =["build", "test", "security_scan", "deploy_staging", "deploy_production"]
-STATUSES =["SUCCESS", "SUCCESS", "SUCCESS", "FAILED", "IN_PROGRESS"]
-
-# Start generating logs from 24 hours ago
+# Define timeline bounds
 start_time = datetime.utcnow() - timedelta(days=1)
 
-def random_time(start, end=datetime.utcnow()):
-    delta = end - start
-    random_seconds = random.randint(0, int(delta.total_seconds()))
-    return start + timedelta(seconds=random_seconds)
+# Inject an "Incident Window" halfway through the day for the Agent to discover
+incident_start = start_time + timedelta(hours=12)
+incident_end = incident_start + timedelta(minutes=45)
 
-def get_message_for_method(method, level):
+def is_incident(t):
+    return incident_start <= t <= incident_end
+
+def get_app_message(method, level):
     if level in ["INFO", "DEBUG"]:
-        messages = {
-            "validateCart": "Cart validated successfully.",
-            "calculateTaxes": "Taxes calculated based on user region.",
-            "applyDiscount": "Promo code applied to cart total.",
-            "processPayment": "Payment transaction initiated.",
-            "updateInventory": "Items reserved in inventory.",
-            "confirmOrder": "Order confirmation email queued."
+        # Expanded variety of INFO messages for a realistic application
+        info_msgs = {
+            "validateCart":[
+                "Cart validated successfully.",
+                "User cart retrieved from Redis cache.",
+                "Cart items cross-referenced with active catalog.",
+                "Session cart merged with active user profile.",
+                "Detected 3 items in cart, total weight calculated."
+            ],
+            "calculateTaxes":[
+                "Taxes calculated based on user shipping region.",
+                "Tax exemptions checked for current user profile.",
+                "Fetched real-time tax rates from external provider.",
+                "Applied standard VAT to eligible cart items."
+            ],
+            "applyDiscount":[
+                "Promo code applied to cart total.",
+                "Checked user loyalty points balance.",
+                "Seasonal discount rule evaluated and applied.",
+                "No valid promo codes found in request, proceeding with base price.",
+                "Free shipping threshold met, shipping cost zeroed."
+            ],
+            "processPayment":[
+                "Payment transaction initiated.",
+                "Tokenizing payment method details securely.",
+                "Awaiting authorization from upstream payment gateway.",
+                "3D Secure verification step triggered.",
+                "Fraud detection pre-check passed successfully."
+            ],
+            "updateInventory":[
+                "Items temporarily reserved in inventory.",
+                "Stock levels decremented for purchased items.",
+                "Warehouse allocation confirmed for shipping.",
+                "Inventory lock acquired for active transaction."
+            ],
+            "confirmOrder":[
+                "Order confirmation email queued for dispatch.",
+                "Order successfully written to primary database.",
+                "Push notification dispatched to user's mobile client.",
+                "Generated digital PDF receipt for order.",
+                "Order status updated to 'PROCESSING'."
+            ]
         }
-        return messages.get(method, "Operation completed.")
+        # Randomly select one of the INFO messages for the given method
+        return random.choice(info_msgs.get(method, ["Operation completed successfully."]))
+        
     elif level == "WARN":
-        return f"Retrying {method} due to slow response."
+        return f"Retrying {method} due to slow response or rate limit."
     else: # ERROR
-        errors = {
-            "validateCart": "InvalidItemException: Item no longer available.",
-            "calculateTaxes": "TaxProviderUnavailableException: Unable to reach tax API.",
-            "applyDiscount": "ExpiredPromoCodeException: Code is no longer valid.",
+        errs = {
+            "validateCart": "InvalidItemException: Item out of stock during checkout.",
+            "calculateTaxes": "TaxProviderTimeout: Upstream API failed to respond.",
+            "applyDiscount": "ExpiredPromoCodeException: Attempted use of invalid code.",
             "processPayment": "PaymentGatewayTimeoutException: Upstream provider timeout.",
-            "updateInventory": "InventorySyncError: Failed to lock database row.",
-            "confirmOrder": "NotificationDeliveryFailed: Email provider rejected request."
+            "updateInventory": "InventorySyncError: Deadlock found when locking DB row.",
+            "confirmOrder": "NotificationDeliveryFailed: SMTP server rejected connection."
         }
-        return errors.get(method, "Unknown internal server error.")
+        return errs.get(method, "Internal Server Error.")
 
-def generate_app_logs(count):
-    logs =[]
-    for _ in range(count):
-        log_time = random_time(start_time)
-        lvl = random.choice(LEVELS)
-        method = random.choice(METHODS)
-        msg = get_message_for_method(method, lvl)
+def generate_correlated_logs():
+    app_logs =[]
+    telemetry_logs = []
+    cicd_logs =[]
 
-        logs.append({
-            "timestamp": log_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    # 1. Generate Application Logs
+    app_step = TOTAL_SECONDS_IN_DAY / NUM_APP_LOGS
+    current_time = start_time
+    
+    for _ in range(NUM_APP_LOGS):
+        current_time += timedelta(seconds=(app_step + random.uniform(-10, 10)))
+        
+        # If during the incident, increase error rates significantly
+        if is_incident(current_time):
+            lvl = random.choices(["INFO", "WARN", "ERROR"], weights=[0.4, 0.2, 0.4])[0]
+            method = "processPayment" if lvl == "ERROR" else random.choice(METHODS)
+        else:
+            lvl = random.choices(["INFO", "DEBUG", "WARN", "ERROR"], weights=[0.85, 0.10, 0.04, 0.01])[0]
+            method = random.choice(METHODS)
+
+        app_logs.append({
+            "timestamp": current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "log_type": "application",
             "trace_id": f"chk-{uuid.uuid4().hex[:8]}",
             "service": SERVICE_NAME,
             "method": method,
             "level": lvl,
-            "message": msg
+            "message": get_app_message(method, lvl)
         })
-    # Sort chronologically
-    return sorted(logs, key=lambda x: x["timestamp"])
 
-def generate_telemetry_logs(count):
-    logs =[]
-    for _ in range(count):
-        log_time = random_time(start_time)
+    # 2. Generate Telemetry Logs
+    tel_step = TOTAL_SECONDS_IN_DAY / NUM_TELEMETRY_LOGS
+    current_time = start_time
+    
+    for _ in range(NUM_TELEMETRY_LOGS):
+        current_time += timedelta(seconds=(tel_step + random.uniform(-5, 5)))
         metric = random.choice(METRICS)
         
-        # Assign realistic values based on metric type
-        if metric == "cpu_utilization_percent": val = round(random.uniform(10.0, 95.0), 2)
-        elif metric == "memory_usage_mb": val = round(random.uniform(512.0, 4096.0), 2)
-        elif metric == "payment_gateway_latency_ms": val = round(random.uniform(150.0, 3500.0), 2)
-        elif metric == "db_query_latency_ms": val = round(random.uniform(5.0, 300.0), 2)
-        elif metric == "active_checkout_sessions": val = random.randint(50, 2000)
-        else: val = round(random.uniform(0.0, 5.0), 2) # error rate percent
+        # Spike telemetry during the incident
+        if is_incident(current_time):
+            if metric == "cpu_utilization_percent": val = round(random.uniform(85.0, 99.9), 2)
+            elif metric == "payment_gateway_latency_ms": val = round(random.uniform(4000.0, 9500.0), 2)
+            elif metric == "checkout_error_rate_percent": val = round(random.uniform(15.0, 45.0), 2)
+            elif metric == "active_checkout_sessions": val = random.randint(1500, 3000)
+            else: val = round(random.uniform(512.0, 4096.0), 2) # memory/db
+        else:
+            if metric == "cpu_utilization_percent": val = round(random.uniform(10.0, 45.0), 2)
+            elif metric == "memory_usage_mb": val = round(random.uniform(512.0, 2048.0), 2)
+            elif metric == "payment_gateway_latency_ms": val = round(random.uniform(150.0, 400.0), 2)
+            elif metric == "db_query_latency_ms": val = round(random.uniform(5.0, 45.0), 2)
+            elif metric == "active_checkout_sessions": val = random.randint(50, 400)
+            else: val = round(random.uniform(0.0, 1.5), 2) # error rate
 
-        logs.append({
-            "timestamp": log_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        telemetry_logs.append({
+            "timestamp": current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "log_type": "telemetry",
             "service": SERVICE_NAME,
             "metric": metric,
             "value": val
         })
-    return sorted(logs, key=lambda x: x["timestamp"])
 
-def generate_cicd_logs(count):
-    logs =[]
-    for _ in range(count):
-        log_time = random_time(start_time)
-        logs.append({
-            "timestamp": log_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    # 3. Generate CI/CD Logs
+    cicd_step = TOTAL_SECONDS_IN_DAY / NUM_CICD_LOGS
+    current_time = start_time
+    
+    for _ in range(NUM_CICD_LOGS):
+        current_time += timedelta(seconds=(cicd_step + random.uniform(-100, 100)))
+        
+        # Inject deploy before incident, rollback at the end
+        if incident_start - timedelta(minutes=10) <= current_time <= incident_start:
+            stage, status = "deploy_production", "SUCCESS"
+        elif incident_end <= current_time <= incident_end + timedelta(minutes=10):
+            stage, status = "rollback_production", "SUCCESS"
+        else:
+            stage = random.choice(STAGES)
+            status = random.choices(["SUCCESS", "IN_PROGRESS", "FAILED"], weights=[0.8, 0.1, 0.1])[0]
+
+        cicd_logs.append({
+            "timestamp": current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "log_type": "cicd",
             "pipeline_id": f"pipe_chk_{random.randint(100, 999)}",
             "service": SERVICE_NAME,
             "commit_hash": uuid.uuid4().hex[:7],
-            "stage": random.choice(STAGES),
-            "status": random.choice(STATUSES),
-            "duration_sec": random.randint(30, 600)
+            "stage": stage,
+            "status": status,
+            "duration_sec": random.randint(30, 400)
         })
-    return sorted(logs, key=lambda x: x["timestamp"])
+
+    return app_logs, telemetry_logs, cicd_logs
 
 if __name__ == "__main__":
-    app_logs = generate_app_logs(NUM_APP_LOGS)
-    telemetry_logs = generate_telemetry_logs(NUM_TELEMETRY_LOGS)
-    cicd_logs = generate_cicd_logs(NUM_CICD_LOGS)
+    app_logs, telemetry_logs, cicd_logs = generate_correlated_logs()
 
     with open("application_logs.json", "w") as f:
         json.dump(app_logs, f, indent=2)
@@ -139,7 +188,4 @@ if __name__ == "__main__":
     with open("cicd_logs.json", "w") as f:
         json.dump(cicd_logs, f, indent=2)
 
-    print(f"Successfully generated 3 files for the Checkout Service:")
-    print(f"- application_logs.json ({NUM_APP_LOGS} logs)")
-    print(f"- telemetry_logs.json ({NUM_TELEMETRY_LOGS} logs)")
-    print(f"- cicd_logs.json ({NUM_CICD_LOGS} logs)")
+    print(f"Successfully generated 3 synchronized log files.")

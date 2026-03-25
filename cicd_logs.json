@@ -1,0 +1,502 @@
+[
+  {
+    "timestamp": "2026-03-24T07:22:23Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_992",
+    "service": "checkout-service",
+    "commit_hash": "47d6b66",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 99
+  },
+  {
+    "timestamp": "2026-03-24T07:50:23Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_401",
+    "service": "checkout-service",
+    "commit_hash": "1467272",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 308
+  },
+  {
+    "timestamp": "2026-03-24T08:19:57Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_594",
+    "service": "checkout-service",
+    "commit_hash": "77e4896",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 205
+  },
+  {
+    "timestamp": "2026-03-24T08:47:25Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_306",
+    "service": "checkout-service",
+    "commit_hash": "056e590",
+    "stage": "deploy_staging",
+    "status": "FAILED",
+    "duration_sec": 72
+  },
+  {
+    "timestamp": "2026-03-24T09:14:55Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_988",
+    "service": "checkout-service",
+    "commit_hash": "15623ed",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 132
+  },
+  {
+    "timestamp": "2026-03-24T09:43:19Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_671",
+    "service": "checkout-service",
+    "commit_hash": "bb68c6d",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 159
+  },
+  {
+    "timestamp": "2026-03-24T10:11:50Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_791",
+    "service": "checkout-service",
+    "commit_hash": "3dc0438",
+    "stage": "deploy_staging",
+    "status": "SUCCESS",
+    "duration_sec": 383
+  },
+  {
+    "timestamp": "2026-03-24T10:41:29Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_189",
+    "service": "checkout-service",
+    "commit_hash": "bd3c619",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 400
+  },
+  {
+    "timestamp": "2026-03-24T11:09:30Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_870",
+    "service": "checkout-service",
+    "commit_hash": "08b9b77",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 178
+  },
+  {
+    "timestamp": "2026-03-24T11:39:22Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_568",
+    "service": "checkout-service",
+    "commit_hash": "bd27ccc",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 70
+  },
+  {
+    "timestamp": "2026-03-24T12:07:33Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_560",
+    "service": "checkout-service",
+    "commit_hash": "d018e9d",
+    "stage": "deploy_staging",
+    "status": "SUCCESS",
+    "duration_sec": 345
+  },
+  {
+    "timestamp": "2026-03-24T12:35:58Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_536",
+    "service": "checkout-service",
+    "commit_hash": "9a4c4a7",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 303
+  },
+  {
+    "timestamp": "2026-03-24T13:03:47Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_543",
+    "service": "checkout-service",
+    "commit_hash": "665b2e9",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 304
+  },
+  {
+    "timestamp": "2026-03-24T13:33:59Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_411",
+    "service": "checkout-service",
+    "commit_hash": "568ebb1",
+    "stage": "security_scan",
+    "status": "FAILED",
+    "duration_sec": 312
+  },
+  {
+    "timestamp": "2026-03-24T14:02:50Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_187",
+    "service": "checkout-service",
+    "commit_hash": "0e75e04",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 348
+  },
+  {
+    "timestamp": "2026-03-24T14:32:22Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_696",
+    "service": "checkout-service",
+    "commit_hash": "10befd5",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 48
+  },
+  {
+    "timestamp": "2026-03-24T15:02:03Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_272",
+    "service": "checkout-service",
+    "commit_hash": "108f54f",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 123
+  },
+  {
+    "timestamp": "2026-03-24T15:30:05Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_998",
+    "service": "checkout-service",
+    "commit_hash": "2d7f654",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 106
+  },
+  {
+    "timestamp": "2026-03-24T15:58:53Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_498",
+    "service": "checkout-service",
+    "commit_hash": "457e7ba",
+    "stage": "security_scan",
+    "status": "FAILED",
+    "duration_sec": 341
+  },
+  {
+    "timestamp": "2026-03-24T16:28:18Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_704",
+    "service": "checkout-service",
+    "commit_hash": "a91cef7",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 281
+  },
+  {
+    "timestamp": "2026-03-24T16:57:07Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_946",
+    "service": "checkout-service",
+    "commit_hash": "5c4a8ed",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 305
+  },
+  {
+    "timestamp": "2026-03-24T17:24:16Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_184",
+    "service": "checkout-service",
+    "commit_hash": "90d6320",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 229
+  },
+  {
+    "timestamp": "2026-03-24T17:51:25Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_989",
+    "service": "checkout-service",
+    "commit_hash": "0f954f5",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 177
+  },
+  {
+    "timestamp": "2026-03-24T18:21:17Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_627",
+    "service": "checkout-service",
+    "commit_hash": "45261a4",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 225
+  },
+  {
+    "timestamp": "2026-03-24T18:49:08Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_711",
+    "service": "checkout-service",
+    "commit_hash": "d9428d0",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 201
+  },
+  {
+    "timestamp": "2026-03-24T19:17:47Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_175",
+    "service": "checkout-service",
+    "commit_hash": "8ee15bd",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 294
+  },
+  {
+    "timestamp": "2026-03-24T19:45:52Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_322",
+    "service": "checkout-service",
+    "commit_hash": "24fdd61",
+    "stage": "rollback_production",
+    "status": "SUCCESS",
+    "duration_sec": 187
+  },
+  {
+    "timestamp": "2026-03-24T20:15:23Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_609",
+    "service": "checkout-service",
+    "commit_hash": "699fe56",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 264
+  },
+  {
+    "timestamp": "2026-03-24T20:44:28Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_946",
+    "service": "checkout-service",
+    "commit_hash": "8b983e7",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 220
+  },
+  {
+    "timestamp": "2026-03-24T21:13:22Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_506",
+    "service": "checkout-service",
+    "commit_hash": "af14972",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 334
+  },
+  {
+    "timestamp": "2026-03-24T21:40:35Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_327",
+    "service": "checkout-service",
+    "commit_hash": "1177a2a",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 217
+  },
+  {
+    "timestamp": "2026-03-24T22:09:14Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_744",
+    "service": "checkout-service",
+    "commit_hash": "d83660c",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 347
+  },
+  {
+    "timestamp": "2026-03-24T22:39:09Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_687",
+    "service": "checkout-service",
+    "commit_hash": "e4688d8",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 84
+  },
+  {
+    "timestamp": "2026-03-24T23:07:30Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_339",
+    "service": "checkout-service",
+    "commit_hash": "8283dea",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 61
+  },
+  {
+    "timestamp": "2026-03-24T23:34:49Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_162",
+    "service": "checkout-service",
+    "commit_hash": "3b4e81c",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 175
+  },
+  {
+    "timestamp": "2026-03-25T00:02:21Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_384",
+    "service": "checkout-service",
+    "commit_hash": "82a63c2",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 88
+  },
+  {
+    "timestamp": "2026-03-25T00:31:28Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_346",
+    "service": "checkout-service",
+    "commit_hash": "4e9fe6c",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 176
+  },
+  {
+    "timestamp": "2026-03-25T00:59:48Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_572",
+    "service": "checkout-service",
+    "commit_hash": "b35912f",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 182
+  },
+  {
+    "timestamp": "2026-03-25T01:27:22Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_466",
+    "service": "checkout-service",
+    "commit_hash": "d2c93c9",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 341
+  },
+  {
+    "timestamp": "2026-03-25T01:56:19Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_955",
+    "service": "checkout-service",
+    "commit_hash": "2c71a5d",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 108
+  },
+  {
+    "timestamp": "2026-03-25T02:23:52Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_272",
+    "service": "checkout-service",
+    "commit_hash": "40e547c",
+    "stage": "security_scan",
+    "status": "FAILED",
+    "duration_sec": 38
+  },
+  {
+    "timestamp": "2026-03-25T02:53:21Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_802",
+    "service": "checkout-service",
+    "commit_hash": "68cd746",
+    "stage": "deploy_production",
+    "status": "SUCCESS",
+    "duration_sec": 290
+  },
+  {
+    "timestamp": "2026-03-25T03:23:12Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_401",
+    "service": "checkout-service",
+    "commit_hash": "46fe1ba",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 252
+  },
+  {
+    "timestamp": "2026-03-25T03:52:53Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_213",
+    "service": "checkout-service",
+    "commit_hash": "63fff39",
+    "stage": "deploy_staging",
+    "status": "SUCCESS",
+    "duration_sec": 78
+  },
+  {
+    "timestamp": "2026-03-25T04:20:15Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_871",
+    "service": "checkout-service",
+    "commit_hash": "a7c9247",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 112
+  },
+  {
+    "timestamp": "2026-03-25T04:49:11Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_272",
+    "service": "checkout-service",
+    "commit_hash": "9bcc0c6",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 184
+  },
+  {
+    "timestamp": "2026-03-25T05:16:47Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_739",
+    "service": "checkout-service",
+    "commit_hash": "b3d38b3",
+    "stage": "security_scan",
+    "status": "SUCCESS",
+    "duration_sec": 391
+  },
+  {
+    "timestamp": "2026-03-25T05:45:26Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_716",
+    "service": "checkout-service",
+    "commit_hash": "0d5c239",
+    "stage": "test",
+    "status": "SUCCESS",
+    "duration_sec": 105
+  },
+  {
+    "timestamp": "2026-03-25T06:15:02Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_899",
+    "service": "checkout-service",
+    "commit_hash": "ffcd442",
+    "stage": "deploy_staging",
+    "status": "SUCCESS",
+    "duration_sec": 202
+  },
+  {
+    "timestamp": "2026-03-25T06:43:16Z",
+    "log_type": "cicd",
+    "pipeline_id": "pipe_chk_339",
+    "service": "checkout-service",
+    "commit_hash": "7fbe185",
+    "stage": "build",
+    "status": "SUCCESS",
+    "duration_sec": 360
+  }
+]
