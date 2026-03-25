@@ -7,7 +7,7 @@ from pydantic import BaseModel
 app = FastAPI(title="AgenticOps API")
 
 class RequestModel(BaseModel):
-    query: str
+    time_stamp: str
 
 @app.get("/")
 def home():
