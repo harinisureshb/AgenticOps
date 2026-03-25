@@ -4,3 +4,4 @@ venv
 .venv
 .vscode
 __pycache__
+vector_database/chroma_db

@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime, timedelta
 
 # Configurations
-NUM_APP_LOGS = 2500
-NUM_TELEMETRY_LOGS = 2000
+NUM_APP_LOGS = 1000
+NUM_TELEMETRY_LOGS = 800
 NUM_CICD_LOGS = 50
 TOTAL_SECONDS_IN_DAY = 86400
 

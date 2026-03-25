@@ -238,14 +238,14 @@ async def resolver_agent(state: AgentState) -> Command[Literal["commander"]]:
 # ━━━━━━━━━━ 6. REPORTER AGENT (React) ━━━━━━━━━━
 reporter_agent_app = create_react_agent(
     model=llm,
-    tools=[send_email_via_power_platform],
+    tools=[],
     prompt=(
         "You are a Lead SRE formatting a final incident report. "
         "Your output MUST be a well-structured HTML email body (using <html>, <body>, <h2>, <table>, <ul>, <p> tags). "
         "Use inline CSS for styling (professional colors, padding, borders). "
         "Required Sections: Executive Summary, Root Cause Analysis, Key Findings (Metrics, Logs, CI/CD), Actionable Resolution Steps, Impact. "
         "Keep it remarkably crisp, highly readable, and authoritative. "
-        "After generating the HTML report, you MUST call the send_email_via_power_platform tool with the full HTML string and the provided timestamp to dispatch the email."
+        "Output ONLY the raw HTML — no markdown fences, no extra text."
     )
 )
 
@@ -266,6 +266,11 @@ async def reporter_agent(state: AgentState) -> Command[Literal["commander", "__e
     final_output = response["messages"][-1].content
     
     logger.info("Reporter agent completed — final report generated")
+
+    # Programmatically send the email via Power Platform
+    timestamp = state.get("time_stamp", "")
+    email_result = send_email_via_power_platform.invoke({"email_html": final_output, "timestamp": timestamp})
+    logger.info("Email dispatch result: %s", email_result)
     
     return Command(
         update={
