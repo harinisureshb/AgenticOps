@@ -2,6 +2,8 @@
 
 import json
 import os
+import chromadb
+from chromadb.utils import embedding_functions
 from langchain_core.tools import tool
 
 # ──────────────── Paths ────────────────
@@ -10,6 +12,9 @@ TELEMETRY_PATH = os.path.join(BASE_DIR, "logs", "telemetry_logs.json")
 APP_LOGS_PATH = os.path.join(BASE_DIR, "logs", "application_logs.json")
 CICD_LOGS_PATH = os.path.join(BASE_DIR, "logs", "cicd_logs.json")
 FAQS_PATH = os.path.join(BASE_DIR, "FAQs", "resolution_faqs.json")
+CHROMA_DB_PATH = os.path.join(BASE_DIR, "vector_database", "chroma_db")
+COLLECTION_NAME = "sre_runbooks"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 # ──────────────── Helpers ────────────────
@@ -317,36 +322,40 @@ def get_deployment_timeline() -> str:
 # ═══════════════ RESOLUTION TOOLS ═══════════════
 
 @tool
-def search_resolution_faqs(query: str) -> str:
-    """Search resolution FAQs for relevant solutions based on keywords.
+def search_resolution_faqs(query: str, n_results: int = 3) -> str:
+    """Search the FAQ knowledge base for resolution steps matching the query.
+    Uses semantic similarity search over the ChromaDB vector store of SRE runbooks.
+    Returns a JSON list of matching documents with metadata and similarity scores.
+
     Args:
-        query: Keywords to search for (e.g., 'payment timeout', 'high CPU', 'OOMKilled')
+        query: A description of the incident or problem to find resolutions for.
+        n_results: Number of top matching FAQs to return (default 3).
     """
-    data = _load_json(FAQS_PATH)
-    query_lower = query.lower()
-    keywords = query_lower.split()
+    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    hf_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
+    )
+    collection = client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        embedding_function=hf_ef,
+        metadata={"hnsw:space": "cosine"},
+    )
 
-    # Score each FAQ by keyword match
-    scored = []
-    for faq in data:
-        text = (faq.get("question", "") + " " + faq.get("answer", "")).lower()
-        score = sum(1 for kw in keywords if kw in text)
-        if score > 0:
-            scored.append((score, faq))
+    results = collection.query(query_texts=[query], n_results=n_results)
 
-    # Sort by relevance, take top 10
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top = scored[:10]
+    if not results["documents"][0]:
+        return json.dumps([])
 
-    if not top:
-        return f"No FAQs found matching: '{query}'"
+    documents = []
+    for doc, meta, dist in zip(
+        results["documents"][0], results["metadatas"][0], results["distances"][0]
+    ):
+        documents.append({
+            "faq_id": meta.get("faq_id"),
+            "category": meta.get("category"),
+            "content": doc,
+            "similarity_score": round(1 - dist, 4),
+        })
 
-    result = f"Resolution FAQs matching '{query}' ({len(scored)} total matches, showing top {len(top)}):\n\n"
-    for score, faq in top:
-        result += (
-            f"📋 {faq['faq_id']} [{faq['category']}]\n"
-            f"   Q: {faq['question']}\n"
-            f"   A: {faq['answer']}\n\n"
-        )
+    return documents
 
-    return result
