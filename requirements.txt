@@ -13,6 +13,3 @@ requests>=2.31.0
 # Vector Database
 chromadb>=0.4.24
 openai>=1.0.0
-
-# HuggingFace Embeddings
-sentence-transformers>=2.5.1
